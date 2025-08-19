@@ -101,6 +101,13 @@ src/
 - `npm run typecheck` - TypeScript checks
 - `npm run validate-firebase` - Validate Firebase configuration
 
+## Extending with a new model
+
+1. Implement a handler in `src/integrations/providers.ts` that matches the `ProviderHandler` async generator interface (it can yield tokens or return a final message).
+2. Register it in the `registry` under your provider id. If images are unsupported, hide image UI affordances in `/chat` for that provider.
+3. Add a section to the API Setup page with validation rules and a “how to get your key” link.
+4. Optionally add sync to Firestore (encrypted) using `src/lib/crypto.ts` and `src/lib/key-sync.ts`.
+
 ## Troubleshooting
 
 ### Firebase Authentication Issues
