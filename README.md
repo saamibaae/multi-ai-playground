@@ -1,13 +1,15 @@
 # Multi-AI Playground
 
-A Next.js application for chatting with multiple AI models including GPT, Claude, Gemini, and more!
+A Next.js App Router app for a multi-model AI chat playground (OpenAI, Gemini, DeepSeek, GLM) with Firebase Auth (Google), optional Firestore sync, Tailwind + shadcn/ui, Framer Motion transitions, and Firebase Hosting deployment.
 
 ## Features
 
-- 🔐 Firebase Authentication (Email/Password)
-- 💬 Multi-AI Chat Interface
-- 🎨 Modern UI with Tailwind CSS
-- ⚡ Fast development with Next.js 15 and Turbopack
+- 🔐 Firebase Authentication (Google). Client-gated routes + server redirects
+- 🔑 API Setup with local storage + optional encrypted Firestore sync
+- 💬 Multi-model chat with per-model threads, image support, and sessions
+- 🎨 Tailwind + shadcn/ui + next-themes (Material You-inspired)
+- 🎞️ Framer Motion transitions respecting prefers-reduced-motion
+- 🚀 Firebase Hosting SSR deployment + GitHub Actions CI
 
 ## Prerequisites
 
@@ -26,23 +28,24 @@ npm install
 
 ### 2. Firebase Setup
 
-This project requires Firebase Authentication. Follow these steps:
+This project requires Firebase Authentication (Google), Firestore (optional sync), and Hosting.
 
-1. **Create a Firebase Project**:
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Create a new project or select an existing one
+1. Create a project in [Firebase Console](https://console.firebase.google.com/)
+2. Authentication → Sign-in method → Enable Google provider
+3. Project Settings → General → Add a web app → copy config
+4. Authorized domains → Add your domain and `localhost`
+5. Firestore → Enable (production mode)
+6. Hosting → Will be configured by Firebase Frameworks auto-detection
 
-2. **Enable Authentication**:
-   - In Firebase Console, go to Authentication > Sign-in method
-   - Enable Email/Password authentication
-
-3. **Get Configuration**:
-   - Go to Project Settings > General
-   - Add a web app and copy the configuration
-
-4. **Set Environment Variables**:
-   - Create a `.env.local` file in the project root
+4. Set Environment Variables (do not commit secrets):
+   - Create `.env.local` in the project root
    - Add your Firebase configuration:
+Optionally add default models (used for initial session setup):
+
+```env
+NEXT_PUBLIC_DEFAULT_OPENAI_MODEL=gpt-4o-mini
+NEXT_PUBLIC_DEFAULT_GEMINI_MODEL=gemini-1.5-flash
+```
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
@@ -75,14 +78,18 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ```
 src/
-├── app/                 # Next.js App Router
-│   ├── auth/           # Authentication pages
-│   ├── chat/           # Chat interface
-│   └── debug/          # Firebase debug page
-├── lib/
-│   └── firebase.ts     # Firebase configuration
-└── scripts/
-    └── validate-firebase.js  # Configuration validation
+├── app/                       # App Router routes
+│   ├── login/                 # Login page
+│   ├── home/                  # Authenticated landing
+│   ├── api-setup/             # API keys management
+│   ├── chat/                  # Playground
+│   ├── template.tsx           # Page transitions
+│   └── layout.tsx             # Providers + theming + navbar
+├── components/                # UI and primitives
+├── contexts/                  # Auth, API keys, Chat
+├── integrations/              # Provider registry
+├── lib/                       # Firebase, crypto, sessions, utils
+└── styles/                    # Tailwind globals
 ```
 
 ## Available Scripts
@@ -91,6 +98,7 @@ src/
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run typecheck` - TypeScript checks
 - `npm run validate-firebase` - Validate Firebase configuration
 
 ## Troubleshooting
@@ -135,44 +143,23 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
-## Firebase Hosting Deployment
+## Firebase Hosting Deployment (SSR)
 
-You can also deploy to Firebase Hosting with Cloud Functions for SSR.
+Firebase supports Next.js App Router via the Frameworks integration.
 
 Prerequisites:
 - Install Firebase CLI: `npm i -g firebase-tools`
 - Login: `firebase login`
-- Create project in Firebase Console and note the project ID
+- Select project: `firebase use <your-project-id>`
 
-Setup (one-time):
-1. Initialize:
-   ```bash
-   firebase login
-   firebase use <your-project-id>
-   ```
-2. Configure Firestore rules (Console → Firestore → Rules) with per-user rules from this README.
-3. Set env vars in `.env.production` (same keys as `.env.local`).
-
-Build & deploy:
-```bash
+Deploy:
+```
 npm run build
 firebase deploy --only hosting
 ```
 
-Optional: CI/CD
+CI/CD:
 - Add `FIREBASE_TOKEN` (from `firebase login:ci`) as a GitHub secret
-- Create `.github/workflows/ci.yml` (already included). Add a deploy job if wanted:
-```yaml
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci && npm run build
-      - run: npx firebase-tools deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
-```
+- See `.github/workflows/ci.yml` for build + deploy on main
 
 Ensure you set your production environment variables in Firebase (if using Cloud Functions runtime config or `.env.production`). For Firestore rules, use the secure rules in this README or in `FIREBASE_SETUP.md`.

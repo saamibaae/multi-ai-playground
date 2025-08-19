@@ -1,18 +1,12 @@
 {
-  "hosting": {
-    "site": "multi-ai-playground",
-    "public": ".next",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      { "source": "**", "function": "nextServer" }
-    ]
-  },
-  "functions": {
-    "source": ".firebase/functions"
+  "hosting": [
+    {
+      "site": "multi-ai-playground",
+      "source": "."
+    }
+  ],
+  "frameworksBackend": {
+    "region": "us-central1"
   }
 }
 

@@ -1,309 +1,287 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import { SidebarNav } from "@/components/SidebarNav";
-import { saveChatLocal, loadChatsLocal, saveChatFirestore } from "@/lib/persistence";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import useEmblaCarousel from "embla-carousel-react";
-import { useAuth } from "@/hooks/useAuth";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-type ProviderKey = "openai" | "gemini" | "deepseek" | "zai";
-type Message = { id: string; role: "user" | "assistant"; content: string; imageDataUrl?: string | null };
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Sidebar } from "@/components/Sidebar";
+import { ResizableColumns } from "@/components/ResizableColumns";
+import { TypingDots } from "@/components/TypingDots";
+import { getSavedApiKeys } from "@/lib/api-keys";
+import { ChatMessage, ChatSession, createSession, defaultModelFor, getActiveSessionId, getSessionById, loadSessions, setActiveSessionId, upsertSession, updateSessionTitle, ProviderId } from "@/lib/sessions";
 
-function useStoredKeys() {
-  const [keys, setKeys] = useState<Partial<Record<ProviderKey, string>>>({});
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("multi-ai-keys");
-      if (raw) setKeys(JSON.parse(raw));
-    } catch { }
-  }, []);
-  return keys;
-}
+type ProviderInfo = { id: ProviderId; name: string; color: string; supportsImages: boolean };
+const PROVIDERS: Record<ProviderId, ProviderInfo> = {
+    openai: { id: "openai", name: "OpenAI", color: "#2563eb", supportsImages: true },
+    gemini: { id: "gemini", name: "Gemini", color: "#059669", supportsImages: true },
+    deepseek: { id: "deepseek", name: "DeepSeek", color: "#d97706", supportsImages: false },
+    zai: { id: "zai", name: "GLM", color: "#7c3aed", supportsImages: false },
+};
 
-export default function ChatPlaygroundPage() {
-  const keys = useStoredKeys();
-  const providers = useMemo(() => Object.entries(keys).filter(([, v]) => !!v) as Array<[ProviderKey, string]>, [keys]);
-  const [historyByProvider, setHistoryByProvider] = useState<Partial<Record<ProviderKey, Message[]>>>({});
-  const [input, setInput] = useState("");
-  const [image, setImage] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [collapsed, setCollapsed] = useState<Partial<Record<ProviderKey, boolean>>>({});
-  const [archives, setArchives] = useState(() => loadChatsLocal());
-  const [searchByProvider, setSearchByProvider] = useState<Partial<Record<ProviderKey, string>>>({});
-  const { user } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const scrollRefs = useRef<Partial<Record<ProviderKey, HTMLDivElement | null>>>({});
-
-  useEffect(() => {
-    // Ensure provider keys exist
-    setHistoryByProvider((h) => {
-      const next = { ...h } as Partial<Record<ProviderKey, Message[]>>;
-      for (const [p] of providers) {
-        if (!next[p]) next[p] = [];
-      }
-      return next;
-    });
-  }, [providers]);
-
-  useEffect(() => {
-    // Auto-scroll each column to bottom when messages change
-    for (const [p] of providers) {
-      const el = scrollRefs.current[p];
-      if (el) {
-        el.scrollTop = el.scrollHeight;
-      }
-    }
-  }, [historyByProvider, isSending, providers]);
-
-  async function send() {
-    if (!input.trim() && !image) return;
-    setIsSending(true);
-    const prompt = input.trim();
-    const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: prompt, imageDataUrl: image };
-    const nextHistory = { ...historyByProvider };
-    for (const [p] of providers) {
-      nextHistory[p] = [...(nextHistory[p] || []), userMessage];
-    }
-    setHistoryByProvider(nextHistory);
-    setInput("");
-    setImage(null);
-
-    const payloadHistories: Record<string, Array<{ role: "user" | "assistant"; content: string }>> = {};
-    for (const [p] of providers) {
-      payloadHistories[p] = (nextHistory[p] || []).map((m) => ({ role: m.role, content: m.content }));
-    }
-
-    const body = {
-      prompt,
-      providers: {
-        openai: keys.openai ? { apiKey: keys.openai } : undefined,
-        gemini: keys.gemini ? { apiKey: keys.gemini } : undefined,
-        deepseek: keys.deepseek ? { apiKey: keys.deepseek } : undefined,
-        zai: keys.zai ? { apiKey: keys.zai } : undefined,
-      },
-      historyByProvider: payloadHistories,
-      image: userMessage.imageDataUrl ? { dataUrl: userMessage.imageDataUrl } : null,
-    };
-
-    try {
-      const res = await fetch("/api/multi-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (data?.responses) {
-        const nh = { ...nextHistory };
-        Object.entries(data.responses as Record<string, { model: string; output: string | null; error: string | null }>).
-          forEach(([key, r]) => {
-            const provider = key as ProviderKey;
-            const text = r.error ? `Error: ${r.error}` : (r.output || "");
-            nh[provider] = [...(nh[provider] || []), { id: crypto.randomUUID(), role: "assistant", content: text }];
-          });
-        setHistoryByProvider(nh);
-        // Save a simple archive snapshot (local)
-        const merged = providers.flatMap(([p]) => nh[p] || []);
-        if (merged.length > 0) {
-          const record = { title: prompt.slice(0, 50) || "New chat", messages: merged.map(m => ({ role: m.role, content: m.content })) };
-          await saveChatLocal(record);
-          if (user?.uid) {
-            await saveChatFirestore(user.uid, record);
-          }
-          setArchives(loadChatsLocal());
+export default function ChatPage() {
+    useEffect(() => {
+        const el = document.querySelector("main");
+        if (el) {
+            (el as HTMLElement).animate(
+                [
+                    { opacity: 0, transform: "translateY(8px)" },
+                    { opacity: 1, transform: "translateY(0px)" },
+                ],
+                { duration: 200, easing: "ease" }
+            );
         }
-      }
-    } catch (e) {
-      const nh = { ...nextHistory };
-      for (const [p] of providers) {
-        nh[p] = [...(nh[p] || []), { id: crypto.randomUUID(), role: "assistant", content: `Request failed: ${String(e)}` }];
-      }
-      setHistoryByProvider(nh);
-    } finally {
-      setIsSending(false);
+    }, []);
+
+    const [sessions, setSessions] = useState<ChatSession[]>(() => loadSessions());
+    const [activeId, setActiveId] = useState<string | null>(() => getActiveSessionId());
+
+    const enabledProviders = useMemo(() => {
+        const local = getSavedApiKeys();
+        const list: { id: ProviderId; model: string }[] = [];
+        if (local.openai) list.push({ id: "openai", model: defaultModelFor("openai") });
+        if (local.gemini) list.push({ id: "gemini", model: defaultModelFor("gemini") });
+        if (local.deepseek) list.push({ id: "deepseek", model: defaultModelFor("deepseek") });
+        if (local.zai) list.push({ id: "zai", model: defaultModelFor("zai") });
+        return list;
+    }, []);
+
+    const activeSession = useMemo(() => {
+        if (activeId) return getSessionById(activeId);
+        return null;
+    }, [activeId, sessions]);
+
+    useEffect(() => {
+        if (!activeSession && enabledProviders.length > 0) {
+            const s = createSession(enabledProviders);
+            upsertSession(s);
+            setSessions(loadSessions());
+            setActiveId(s.id);
+        }
+    }, [activeSession, enabledProviders]);
+
+    function handleNewChat() {
+        const s = createSession(enabledProviders);
+        upsertSession(s);
+        setSessions(loadSessions());
+        setActiveId(s.id);
     }
-  }
 
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImage(String(reader.result));
-    reader.readAsDataURL(file);
-  }
+    function handleOpenSession(id: string) {
+        setActiveId(id);
+        setActiveSessionId(id);
+    }
 
-  function onDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImage(String(reader.result));
-    reader.readAsDataURL(file);
-  }
+    function handleSearch(_q: string) {
+        // search handled in parent if needed; placeholder for now
+    }
 
-  return (
-    <main className="flex h-dvh">
-      <SidebarNav
-        onNewChat={() => setHistoryByProvider({})}
-        onCollapseAll={() => setCollapsed(Object.fromEntries(providers.map(([p]) => [p, true])) as Partial<Record<ProviderKey, boolean>>)}
-      />
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 p-4">
-          <div className="md:hidden">
-            {/* Mobile: swipeable */}
-            <CarouselColumns providers={providers} historyByProvider={historyByProvider} isSending={isSending} collapsed={collapsed} />
-          </div>
-          <div className="hidden md:block">
-            {/* Desktop: resizable */}
-            <PanelGroup direction="horizontal">
-              {providers.map(([provider], idx) => (
-                <div className="contents" key={provider}>
-                  {idx > 0 && <PanelResizeHandle className="w-1 bg-transparent" />}
-                  <Panel defaultSize={100 / Math.max(1, providers.length)} minSize={20}>
-                    <div className="pr-4">
-                      <div className="card p-4 flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium capitalize">{provider}</div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => setHistoryByProvider((h) => ({ ...h, [provider]: [] }))}>New</Button>
-                            <Button variant="outline" size="sm" onClick={() => setCollapsed((c) => ({ ...c, [provider]: !c[provider] }))}>{collapsed[provider] ? "Expand" : "Collapse"}</Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm">Previous</Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {archives.length === 0 && <div className="px-2 py-1 text-sm opacity-60">No history</div>}
-                                {archives.slice(0, 10).map((a, i) => (
-                                  <DropdownMenuItem key={i} onClick={() => setHistoryByProvider((h) => ({
-                                    ...h,
-                                    [provider]: a.messages.map((m) => ({ id: crypto.randomUUID(), role: m.role, content: m.content }))
-                                  }))}>
-                                    {a.title}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={searchByProvider[provider] || ""}
-                            onChange={(e) => setSearchByProvider((s) => ({ ...s, [provider]: e.target.value }))}
-                            placeholder="Search in chat..."
-                          />
-                        </div>
-                        <div
-                          ref={(el) => { scrollRefs.current[provider] = el; }}
-                          className={`flex-1 min-h-0 overflow-y-auto pr-1 ${collapsed[provider] ? "hidden" : "flex"} flex-col justify-end space-y-2 pb-28`}
-                        >
-                          {((historyByProvider[provider] || []).filter((m) => {
-                            const q = (searchByProvider[provider] || "").trim().toLowerCase();
-                            return !q || m.content.toLowerCase().includes(q);
-                          }))
-                            .map((m) => (
-                              <div key={m.id} className={`animate-fadeIn w-full ${m.role === "user" ? "ml-auto max-w-[80%]" : "mr-auto max-w-[90%]"}`}>
-                                <div className={`rounded-2xl px-4 py-2 ${m.role === "user" ? "bg-blue-600 text-white" : "bg-black/5 dark:bg-white/10"}`}>
-                                  {m.imageDataUrl && (
-                                    <Image src={m.imageDataUrl} alt="uploaded image" width={512} height={512} className="mb-2 h-auto w-auto max-h-48 rounded-lg" />
-                                  )}
-                                  <div className="whitespace-pre-wrap text-sm">{m.content}</div>
-                                </div>
-                              </div>
-                            ))}
-                          {isSending && (
-                            <div className="mr-auto max-w-[60%] rounded-2xl bg-black/5 dark:bg-white/10 px-4 py-2">
-                              <span className="inline-flex gap-1">
-                                <span className="h-2 w-2 rounded-full bg-current animate-typing" />
-                                <span className="h-2 w-2 rounded-full bg-current animate-typing [animation-delay:150ms]" />
-                                <span className="h-2 w-2 rounded-full bg-current animate-typing [animation-delay:300ms]" />
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Panel>
-                </div>
-              ))}
-            </PanelGroup>
-          </div>
-        </div>
+    const sidebarSessions = useMemo(() => sessions.map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt })), [sessions]);
 
+    if (!activeSession) {
+        return (
+            <main style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "calc(100svh - 56px)" }}>
+                <Sidebar providers={enabledProviders} onNewChat={handleNewChat} onSearch={handleSearch} onOpenSession={handleOpenSession} sessions={sidebarSessions} />
+                <div style={{ display: "grid", placeItems: "center" }}>No providers enabled. Add keys in API Setup.</div>
+            </main>
+        );
+    }
 
-        {/* Floating prompt bar */}
-        <div
-          onDrop={onDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className="fixed z-50 inset-x-3 bottom-3 md:left-72 md:right-6"
-        >
-          <div className="mx-auto flex max-w-5xl items-center gap-2 rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-black/40 backdrop-blur p-2 shadow-lg">
-            <Button variant="outline" onClick={() => fileRef.current?.click()} title="Upload image">+</Button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
-            <div className="flex-1">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask anything..."
-              />
-            </div>
-            <Button onClick={send} disabled={isSending}>Send</Button>
-          </div>
-          {image && (
-            <div className="mx-auto mt-2 max-w-5xl">
-              <div className="inline-flex items-center gap-3 rounded-xl border p-2 pr-3 bg-white/70 dark:bg-black/40 backdrop-blur">
-                <Image src={image} alt="preview" width={48} height={48} className="h-12 w-12 rounded object-cover" />
-                <button className="text-xs opacity-70 hover:opacity-100" onClick={() => setImage(null)}>Remove</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </main >
-  );
+    return (
+        <ChatUI
+            sessions={sessions}
+            setSessions={setSessions}
+            activeSession={activeSession}
+            setActiveSessionId={(id) => {
+                setActiveId(id);
+                setActiveSessionId(id);
+            }}
+            enabledProviders={enabledProviders}
+            onNewChat={handleNewChat}
+            onOpenSession={handleOpenSession}
+            onSearch={handleSearch}
+        />
+    );
 }
 
-function CarouselColumns({ providers, historyByProvider, isSending, collapsed }: {
-  providers: Array<[ProviderKey, string]>;
-  historyByProvider: Partial<Record<ProviderKey, Message[]>>;
-  isSending: boolean;
-  collapsed: Partial<Record<ProviderKey, boolean>>;
+function ChatUI({ sessions, setSessions, activeSession, setActiveSessionId, enabledProviders, onNewChat, onOpenSession, onSearch }: {
+    sessions: ChatSession[];
+    setSessions: (s: ChatSession[]) => void;
+    activeSession: ChatSession;
+    setActiveSessionId: (id: string) => void;
+    enabledProviders: Array<{ id: ProviderId; model: string }>;
+    onNewChat: () => void;
+    onOpenSession: (id: string) => void;
+    onSearch: (q: string) => void;
 }) {
-  const [emblaRef] = useEmblaCarousel({ loop: false, dragFree: true });
-  return (
-    <div className="overflow-hidden" ref={emblaRef}>
-      <div className="flex gap-4 pb-28">
-        {providers.map(([provider]) => (
-          <div key={provider} className="min-w-0 shrink-0 grow-0 basis-full">
-            <div className="card p-4 flex flex-col">
-              <div className="flex items-center justify-between">
-                <div className="font-medium capitalize">{provider}</div>
-              </div>
-              <div className={`mt-3 flex-1 min-h-0 overflow-y-auto pr-1 ${collapsed[provider] ? "hidden" : "flex"} flex-col justify-end space-y-2`}>
-                {(historyByProvider[provider] || []).map((m) => (
-                  <div key={m.id} className={`animate-fadeIn w-full ${m.role === "user" ? "ml-auto max-w-[80%]" : "mr-auto max-w-[90%]"}`}>
-                    <div className={`rounded-2xl px-4 py-2 ${m.role === "user" ? "bg-blue-600 text-white" : "bg-black/5 dark:bg-white/10"}`}>
-                      {m.imageDataUrl && (
-                        <Image src={m.imageDataUrl} alt="uploaded image" width={512} height={512} className="mb-2 h-auto w-auto max-h-48 rounded-lg" />
-                      )}
-                      <div className="whitespace-pre-wrap text-sm">{m.content}</div>
-                    </div>
-                  </div>
-                ))}
-                {isSending && (
-                  <div className="mr-auto max-w-[60%] rounded-2xl bg-black/5 dark:bg-white/10 px-4 py-2">
-                    <span className="inline-flex gap-1">
-                      <span className="h-2 w-2 rounded-full bg-current animate-typing" />
-                      <span className="h-2 w-2 rounded-full bg-current animate-typing [animation-delay:150ms]" />
-                      <span className="h-2 w-2 rounded-full bg-current animate-typing [animation-delay:300ms]" />
-                    </span>
-                  </div>
-                )}
-              </div>
+    const [input, setInput] = useState("");
+    const [image, setImage] = useState<{ dataUrl: string; mimeType?: string } | null>(null);
+    const [loading, setLoading] = useState<Record<ProviderId, boolean>>({ openai: false, gemini: false, deepseek: false, zai: false });
+    const scrollRefs = useRef<Record<ProviderId, HTMLDivElement | null>>({ openai: null, gemini: null, deepseek: null, zai: null });
+
+    const columns = enabledProviders.map((p) => p.id);
+
+    function setSession(next: ChatSession) {
+        upsertSession(next);
+        setSessions(loadSessions());
+    }
+
+    function handleDrop(ev: React.DragEvent<HTMLTextAreaElement>) {
+        ev.preventDefault();
+        const file = ev.dataTransfer.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setImage({ dataUrl: String(reader.result), mimeType: file.type || "image/png" });
+        reader.readAsDataURL(file);
+    }
+
+    function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => setImage({ dataUrl: String(reader.result), mimeType: file.type || "image/png" });
+        reader.readAsDataURL(file);
+    }
+
+    async function send() {
+        const prompt = input.trim();
+        if (!prompt) return;
+        const now = Date.now();
+        let session = { ...activeSession, updatedAt: now };
+        session = updateSessionTitle(session, prompt);
+
+        for (const pid of columns) {
+            const thread = session.threads[pid];
+            thread.messages = [...thread.messages, { role: "user", content: prompt, image: PROVIDERS[pid].supportsImages ? image : null, createdAt: now }];
+        }
+
+        setSession(session);
+        setInput("");
+        setImage(null);
+        const controller = new AbortController();
+
+        const requests = columns.map(async (pid) => {
+            setLoading((l) => ({ ...l, [pid]: true }));
+            try {
+                const res = await fetch("/api/multi-chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        prompt,
+                        providers: providerPayloadFromLocal(),
+                        historyByProvider: buildHistoryByProvider(session),
+                        image: image && PROVIDERS[pid].supportsImages ? image : null,
+                    }),
+                });
+                const data = await res.json();
+                const output = data?.responses?.[pid]?.output || data?.responses?.[pid]?.error || "";
+                session = { ...session };
+                session.threads[pid] = { ...session.threads[pid], messages: [...session.threads[pid].messages, { role: "assistant", content: output, createdAt: Date.now() } as ChatMessage] };
+                setSession(session);
+                scrollToBottom(pid);
+            } catch (err) {
+                session = { ...session };
+                session.threads[pid] = { ...session.threads[pid], messages: [...session.threads[pid].messages, { role: "assistant", content: String(err), createdAt: Date.now() } as ChatMessage] };
+                setSession(session);
+            } finally {
+                setLoading((l) => ({ ...l, [pid]: false }));
+            }
+        });
+        await Promise.allSettled(requests);
+    }
+
+    function providerPayloadFromLocal() {
+        const local = getSavedApiKeys();
+        const providers: any = {};
+        if (local.openai) providers.openai = { apiKey: local.openai, model: defaultModelFor("openai") };
+        if (local.gemini) providers.gemini = { apiKey: local.gemini, model: defaultModelFor("gemini") };
+        if (local.deepseek) providers.deepseek = { apiKey: local.deepseek, model: defaultModelFor("deepseek") };
+        if (local.zai) providers.zai = { apiKey: local.zai, model: defaultModelFor("zai") };
+        return providers;
+    }
+
+    function buildHistoryByProvider(session: ChatSession) {
+        const map: any = {};
+        for (const pid of columns) {
+            const messages = session.threads[pid].messages.map((m) => ({ role: m.role, content: m.content }));
+            map[pid] = messages;
+        }
+        return map;
+    }
+
+    function scrollToBottom(pid: ProviderId) {
+        const target = scrollRefs.current[pid];
+        if (target) target.scrollTo({ top: target.scrollHeight, behavior: "smooth" });
+    }
+
+    const columnNodes = columns.map((pid) => (
+        <Column key={pid} pid={pid} session={activeSession} loading={loading[pid]} scrollRef={(el) => (scrollRefs.current[pid] = el)} />
+    ));
+
+    return (
+        <main style={{ display: "grid", gridTemplateColumns: "280px 1fr", height: "calc(100svh - 56px)" }}>
+            <Sidebar providers={enabledProviders} onNewChat={onNewChat} onSearch={onSearch} onOpenSession={onOpenSession} sessions={sessions.map((s) => ({ id: s.id, title: s.title, updatedAt: s.updatedAt }))} />
+            <div style={{ display: "grid", gridTemplateRows: "1fr auto", height: "100%" }}>
+                <div style={{ padding: 12, overflow: "hidden" }}>
+                    <ResizableColumns>
+                        {columnNodes}
+                    </ResizableColumns>
+                </div>
+                <div style={{ borderTop: "1px solid #e5e7eb", padding: 12, display: "flex", gap: 8, alignItems: "flex-end", position: "sticky", bottom: 0, background: "white" }}>
+                    <textarea
+                        onDrop={handleDrop}
+                        onDragOver={(e) => e.preventDefault()}
+                        placeholder="Type a message..."
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        rows={2}
+                        style={{ flex: 1, resize: "none", padding: 12, border: "1px solid #e5e7eb", borderRadius: 12 }}
+                    />
+                    <label style={{ padding: "10px 12px", border: "1px solid #e5e7eb", borderRadius: 10, background: "white", cursor: "pointer" }}>
+                        Attach
+                        <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleFilePick} />
+                    </label>
+                    <button onClick={send} style={{ padding: "12px 16px", borderRadius: 12, background: "#111827", color: "white", border: "1px solid #111827", fontWeight: 700 }}>Send</button>
+                </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+        </main>
+    );
+}
+
+function Column({ pid, session, loading, scrollRef }: { pid: ProviderId; session: ChatSession; loading: boolean; scrollRef: (el: HTMLDivElement | null) => void }) {
+    const info = PROVIDERS[pid];
+    const thread = session.threads[pid];
+    const [collapsed, setCollapsed] = useState(false);
+
+    useEffect(() => {
+        const el = document.getElementById(`col-scroll-${pid}`);
+        if (el) scrollRef(el as HTMLDivElement);
+    }, [pid, scrollRef]);
+
+    return (
+        <div style={{ display: "grid", gridTemplateRows: "auto 1fr", minHeight: 0, border: "1px solid #e5e7eb", borderRadius: 12, background: "white" }}>
+            <header style={{ position: "sticky", top: 0, zIndex: 1, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: 8, borderBottom: "1px solid #e5e7eb", background: "white" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 999, background: info.color }} />
+                    <strong>{info.name}</strong>
+                </div>
+                <button onClick={() => setCollapsed((c) => !c)} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e5e7eb", background: "white" }}>{collapsed ? "Expand" : "Collapse"}</button>
+            </header>
+            <div id={`col-scroll-${pid}`} style={{ overflow: "auto", padding: 12, display: collapsed ? "none" : "block" }}>
+                {thread.messages.map((m, idx) => (
+                    <div key={idx} style={{ marginBottom: 10, display: "grid", justifyContent: m.role === "user" ? "end" : "start" }}>
+                        <div style={{ maxWidth: 540, padding: 10, borderRadius: 12, background: m.role === "user" ? "#111827" : "#f3f4f6", color: m.role === "user" ? "white" : "#111827", animation: "msg .18s ease both" }}>
+                            <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+                            {m.image ? (
+                                <img src={m.image.dataUrl} alt="attachment" style={{ display: "block", maxWidth: "100%", height: "auto", marginTop: 8, borderRadius: 8 }} loading="lazy" />
+                            ) : null}
+                        </div>
+                    </div>
+                ))}
+                {loading ? (
+                    <div style={{ marginTop: 8 }}><TypingDots /></div>
+                ) : null}
+                <style>{`@keyframes msg{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
+            </div>
+        </div>
+    );
 }
 
 
