@@ -7,6 +7,8 @@ const tabs = [
     { id: 'openai', label: 'OpenAI', placeholder: 'sk-...' },
     { id: 'gemini', label: 'Gemini', placeholder: 'AIza...' },
     { id: 'anthropic', label: 'Anthropic', placeholder: 'anthropic-key' },
+    { id: 'zhipu', label: 'Zhipu AI', placeholder: 'ZHIPU_API_KEY' },
+    { id: 'custom', label: 'Custom', placeholder: 'http(s)://your-api-base' },
 ]
 
 export default function ApiKeyPage() {
@@ -14,12 +16,12 @@ export default function ApiKeyPage() {
     const { keys, setKeys, hasAnyKey, clearKeys, loading } = useApiKeys()
     const { user, logout } = useAuthContext()
     const [active, setActive] = useState('openai')
-    const [local, setLocal] = useState(keys)
+    const [local, setLocal] = useState({ ...keys, customBase: keys.customBase || '', customKey: keys.customKey || '' })
     const [showSuccess, setShowSuccess] = useState(false)
 
     // Update local state when keys are loaded from Firebase
     useEffect(() => {
-        setLocal(keys)
+        setLocal({ ...keys, customBase: keys.customBase || '', customKey: keys.customKey || '' })
     }, [keys])
 
     function saveAndContinue() {
@@ -34,7 +36,7 @@ export default function ApiKeyPage() {
     function handleClearKeys() {
         if (confirm('Are you sure you want to clear all API keys? This action cannot be undone.')) {
             clearKeys()
-            setLocal({ openai: '', gemini: '', anthropic: '' })
+            setLocal({ openai: '', gemini: '', anthropic: '', zhipu: '', customBase: '', customKey: '' })
             setShowSuccess(false)
         }
     }
@@ -101,14 +103,37 @@ export default function ApiKeyPage() {
                     ))}
                 </div>
                 <div className="mt-4">
-                    <label className="block text-sm mb-2">API key</label>
-                    <input
-                        type="password"
-                        className="w-full rounded-lg border px-3 py-2"
-                        placeholder={tabs.find((t) => t.id === active)?.placeholder}
-                        value={local[active] || ''}
-                        onChange={(e) => setLocal({ ...local, [active]: e.target.value })}
-                    />
+                    {active === 'custom' ? (
+                        <>
+                            <label className="block text-sm mb-2">Base URL</label>
+                            <input
+                                className="w-full rounded-lg border px-3 py-2 mb-3"
+                                placeholder="https://api.deepseek.com/v1"
+                                type="text"
+                                value={local.customBase || ''}
+                                onChange={(e) => setLocal({ ...local, customBase: e.target.value })}
+                            />
+                            <label className="block text-sm mb-2">API Key</label>
+                            <input
+                                className="w-full rounded-lg border px-3 py-2"
+                                placeholder="sk-or-v1-..."
+                                type="password"
+                                value={local.customKey || ''}
+                                onChange={(e) => setLocal({ ...local, customKey: e.target.value })}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <label className="block text-sm mb-2">{tabs.find(t => t.id === active)?.label} API Key</label>
+                            <input
+                                className="w-full rounded-lg border px-3 py-2"
+                                placeholder={tabs.find((t) => t.id === active)?.placeholder}
+                                type="password"
+                                value={local[active] || ''}
+                                onChange={(e) => setLocal({ ...local, [active]: e.target.value })}
+                            />
+                        </>
+                    )}
                 </div>
                 {showSuccess && (
                     <div className="mt-4 p-3 bg-green-100 border border-green-200 text-green-800 rounded-lg text-sm">
@@ -135,7 +160,7 @@ export default function ApiKeyPage() {
                     </div>
                     <button
                         className="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
-                        disabled={!local.openai && !local.gemini && !local.anthropic}
+                        disabled={!local.openai && !local.gemini && !local.anthropic && !local.zhipu && (!local.customBase || !local.customKey)}
                         onClick={saveAndContinue}
                     >
                         Save & Continue

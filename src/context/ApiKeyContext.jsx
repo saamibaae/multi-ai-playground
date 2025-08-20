@@ -10,6 +10,8 @@ const defaultState = {
     gemini: '',
     anthropic: '',
     zhipu: '',
+    customBase: '',
+    customKey: '',
     hidden: {
         openai: false,
         gemini: false,
@@ -101,7 +103,7 @@ export function ApiKeysProvider({ children }) {
         }
     }, [keys, user, loading])
 
-    const hasAnyKey = !!(keys.openai || keys.gemini || keys.anthropic || keys.zhipu || keys.customBase)
+    const hasAnyKey = !!(keys.openai || keys.gemini || keys.anthropic || keys.zhipu || (keys.customBase && keys.customKey))
 
     const clearKeys = async () => {
         const newKeys = defaultState
