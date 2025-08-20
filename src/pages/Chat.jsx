@@ -9,6 +9,7 @@ import { GeminiAdapter } from '../adapters/GeminiAdapter.js'
 import { ClaudeAdapter } from '../adapters/ClaudeAdapter.js'
 import { ZhipuAdapter } from '../adapters/ZhipuAdapter.js'
 import { CustomAdapter } from '../adapters/CustomAdapter.js'
+import { Menu } from 'lucide-react'
 
 export default function Chat() {
     const { activeChat, appendMessage } = useChatContext()
@@ -63,13 +64,39 @@ export default function Chat() {
         }
     }
 
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
     return (
         <div className="flex h-screen overflow-hidden">
-            <Sidebar />
+            {/* Desktop sidebar */}
+            <Sidebar mobile={false} />
+
+            {/* Mobile slide-over */}
+            {mobileMenuOpen && (
+                <div className="fixed inset-0 z-40 flex md:hidden" role="dialog" aria-modal="true">
+                    <div className="fixed inset-0 bg-black/40" onClick={() => setMobileMenuOpen(false)}></div>
+                    <div className="relative ml-0 h-full w-72 bg-gray-900 text-white shadow-xl">
+                        <Sidebar mobile className="h-full" />
+                    </div>
+                </div>
+            )}
+
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 overflow-y-auto">
-                    {providers.filter(p => p.enabled).map((p, idx, arr) => (
-                        <div key={p.id} className="h-full flex flex-col p-4">
+                {/* Mobile top bar */}
+                <div className="md:hidden sticky top-0 z-30 bg-white border-b">
+                    <div className="flex items-center justify-between px-3 py-2">
+                        <button className="inline-flex items-center gap-2 rounded-md px-2 py-1 border" onClick={() => setMobileMenuOpen(true)}>
+                            <Menu size={18} />
+                            Menu
+                        </button>
+                        <div className="text-sm text-neutral-600">Multi AI Playground</div>
+                        <div className="w-[64px]" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 overflow-y-auto p-3 md:p-4">
+                    {providers.filter(p => p.enabled).map((p) => (
+                        <div key={p.id} className="h-full flex flex-col p-2 md:p-4">
                             <ChatColumn title={p.name} messages={perProviderMessages[p.id] || []} />
                         </div>
                     ))}

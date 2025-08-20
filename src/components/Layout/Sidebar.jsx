@@ -5,7 +5,7 @@ import { useChatContext } from '../../context/ChatContext.jsx'
 import { useApiKeys } from '../../context/ApiKeyContext.jsx'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
-export default function Sidebar() {
+export default function Sidebar({ mobile = false, className = '' }) {
     const { chats, activeChatId, setActiveChatId, newChat, deleteChat } = useChatContext()
     const navigate = useNavigate()
     const location = useLocation()
@@ -21,7 +21,7 @@ export default function Sidebar() {
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.25 }}
-            className="w-72 shrink-0 h-screen sticky top-0 bg-gray-900 text-white flex flex-col"
+            className={`${mobile ? 'block' : 'hidden md:flex'} w-72 shrink-0 h-screen bg-gray-900 text-white flex-col ${mobile ? '' : 'sticky top-0'} ${className}`}
         >
             <div className="p-4 flex items-center justify-between">
                 <div className="font-semibold">Multi AI</div>
