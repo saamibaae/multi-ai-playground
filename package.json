@@ -1,32 +1,64 @@
 {
-  "name": "multi-ai-playground",
-  "version": "0.1.0",
-  "private": true,
+  "name": "multi-ai-chat-platform",
+  "version": "1.0.0",
+  "description": "A modern chat platform enabling conversations with multiple AI providers simultaneously. Built with React, Vite, Tailwind CSS, and Firebase.",
+  "keywords": ["react", "vite", "tailwindcss", "firebase", "ai", "chat", "openai", "gemini", "claude", "cursor"],
+  "author": "AI Agents (Generated in Cursor)",
+  "license": "MIT",
+  "homepage": "https://github.com/saamibaae/multi-ai-playground#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saamibaae/multi-ai-playground.git"
+  },
+  "bugs": {
+    "url": "https://github.com/saamibaae/multi-ai-playground/issues"
+  },
+  "private": false,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:ui": "vitest",
     "validate-firebase": "node scripts/validate-firebase.js",
     "fix-env": "node scripts/fix-env-encoding.js"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "firebase": "^12.1.0",
-    "next": "15.4.7",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "framer-motion": "^12.23.12",
+    "lucide-react": "^0.540.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^6.26.2",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@types/node": "^20",
+    "@types/babel__traverse": "^7.28.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.3.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
-    "eslint-config-next": "15.4.7",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.12",
+    "tailwindcss": "^3.4.13",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.4",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "jsdom": "^25.0.1"
   }
 }

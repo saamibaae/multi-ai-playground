@@ -1,14 +1,9 @@
-# How to get API keys
+### AI Provider Keys
 
-OpenAI
-- Sign in and create a secret key in your account dashboard.
+- OpenAI: generate a secret key in your account dashboard.
+- Anthropic: create a key in your console.
+- Gemini: use Google AI Studio to create a key.
 
-Anthropic
-- Sign in and create an API key in your console.
-
-Gemini
-- Visit Google AI Studio and create an API key.
-
-Store your keys securely. In this app, keys entered in the Chat page are stored only in your browser's localStorage.
+Keys are stored locally in your browser via Settings → Manage API Keys.
 
 

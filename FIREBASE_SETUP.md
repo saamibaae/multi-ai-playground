@@ -1,4 +1,4 @@
-# Firebase Setup Guide
+# Firebase Setup Guide (Vite + React)
 
 This guide will help you set up Firebase authentication for the multi-ai-playground project.
 
@@ -52,12 +52,12 @@ const firebaseConfig = {
 2. Add the following environment variables using the values from your Firebase config:
 
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
-NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef123456
 ```
 
 ## Step 5: Verify Configuration
@@ -67,7 +67,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef123456
    npm run dev
    ```
 
-2. Visit `http://localhost:3000/debug` to check if Firebase is properly configured
+2. Visit `http://localhost:5173` to run the app.
 
 3. If everything is set up correctly, you should see:
    - "Firebase initialized successfully"
@@ -97,7 +97,7 @@ This error typically occurs when:
 1. **Restart your development server** after making changes to `.env.local`
 2. **Check file location**: Ensure `.env.local` is in the project root
 3. **Check file format**: Make sure there are no spaces around the `=` sign
-4. **Check variable names**: Ensure all variable names start with `NEXT_PUBLIC_`
+4. **Check variable names**: Ensure all variable names start with `VITE_`
 
 ### Firebase Project Issues
 
@@ -122,5 +122,5 @@ This error typically occurs when:
 ## Additional Resources
 
 - [Firebase Documentation](https://firebase.google.com/docs)
-- [Next.js Environment Variables](https://nextjs.org/docs/basic-features/environment-variables)
+- [Vite Env Variables](https://vitejs.dev/guide/env-and-mode.html)
 - [Firebase Authentication](https://firebase.google.com/docs/auth)

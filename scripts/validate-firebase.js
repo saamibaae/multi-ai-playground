@@ -50,14 +50,14 @@ envContent.split('\n').forEach((line) => {
   }
 });
 
-// Required Firebase environment variables
+// Required Firebase environment variables (Vite)
 const requiredVars = [
-  'NEXT_PUBLIC_FIREBASE_API_KEY',
-  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-  'NEXT_PUBLIC_FIREBASE_APP_ID'
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
 ];
 
 let allValid = true;
@@ -94,14 +94,14 @@ if (allValid) {
 console.log('\n🔧 Additional checks:');
 
 // Check if API key looks valid (starts with AIza)
-const apiKey = envVars['NEXT_PUBLIC_FIREBASE_API_KEY'];
+const apiKey = envVars['VITE_FIREBASE_API_KEY'];
 if (apiKey && !apiKey.startsWith('AIza')) {
   console.log('⚠️  Warning: API key format looks unusual. Make sure it\'s correct.');
 }
 
 // Check if project ID matches auth domain
-const projectId = envVars['NEXT_PUBLIC_FIREBASE_PROJECT_ID'];
-const authDomain = envVars['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'];
+const projectId = envVars['VITE_FIREBASE_PROJECT_ID'];
+const authDomain = envVars['VITE_FIREBASE_AUTH_DOMAIN'];
 if (projectId && authDomain && !authDomain.includes(projectId)) {
   console.log('⚠️  Warning: Auth domain doesn\'t seem to match project ID.');
 }

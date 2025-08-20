@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App base styles */
+:root {
+    --bg: 255 255 255;
+    --fg: 17 24 39;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    background-color: #f9fafb;
+    /* Tailwind bg-gray-50 */
+    color: #111827;
+    /* Tailwind text-gray-900 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
