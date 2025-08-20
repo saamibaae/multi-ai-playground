@@ -1,3 +1,4 @@
+
 # Multi-AI Chat Platform
 
 ⚡ **Entire codebase generated using AI agents inside Cursor.**
@@ -227,3 +228,4 @@ If you encounter any issues or have questions:
 **⚡ Remember: This entire codebase was generated using AI agents inside Cursor - showcasing the power of AI-assisted development!**
 
 Made with ❤️ and 🤖 AI
+
