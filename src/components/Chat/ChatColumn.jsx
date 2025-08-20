@@ -13,7 +13,7 @@ export default function ChatColumn({ title, messages }) {
     }, [messages?.length])
     return (
         <div className="card h-full flex flex-col min-h-0">
-            <div className="text-sm font-semibold mb-2">{title}</div>
+            <div className="text-sm font-semibold mb-2 sticky top-0 z-10 bg-white/85 backdrop-blur rounded-xl p-1">{title}</div>
             <div
                 ref={scrollerRef}
                 className="flex-1 overflow-y-auto scroll-smooth overscroll-contain pr-2"
@@ -32,5 +32,3 @@ export default function ChatColumn({ title, messages }) {
         </div>
     )
 }
-
-

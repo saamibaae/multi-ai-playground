@@ -62,7 +62,7 @@ export default function ApiSetup() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-neutral-100">
+        <div className="min-h-screen flex items-center justify-center bg-neutral-100 p-3">
             <div className="card max-w-xl w-full">
                 {/* User Info Header */}
                 {user && (
@@ -168,5 +168,3 @@ export default function ApiSetup() {
         </div>
     )
 }
-
-
